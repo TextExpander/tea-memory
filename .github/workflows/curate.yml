@@ -1,0 +1,43 @@
+name: Curate memory
+
+# Nightly self-curation of the memory library. Consolidation (merges + reconciling
+# rewrites) is opened as a PR and auto-merged for a trail; deletions are opened as
+# a PR and left for a human to merge or close. No-ops quietly when nothing is due.
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC nightly
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the plan without making changes
+        type: boolean
+        default: false
+
+concurrency:
+  group: curate-memory
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  curate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Configure git identity
+        run: |
+          git config user.name "tea-curator[bot]"
+          git config user.email "tea-curator@users.noreply.github.com"
+      - name: Curate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          CURATE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: python3 curation/curate.py
